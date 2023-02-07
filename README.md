@@ -14,6 +14,9 @@ module load SPAdes/3.15.4-gimkl-2022a-Python-3.10.5
 
 spades.py --isolate -1 $file -2 ${file/copyR1/copyR2} -o ./output/${file%%*}/
 
+$module load BBMap/39.01-GCC-11.3.0
+$stats.sh contigs.fasta
+
 #Visualising reads mapped to the metagenome in IGV
 #Sequences from the NCBI database were downloaded and uploaded to NeSI. 
 #The genomes which were added to the metagenome was each top result from the initial BLAST search made from the contigs. This made up the main metagenome. 
