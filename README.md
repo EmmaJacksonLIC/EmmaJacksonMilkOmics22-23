@@ -1,4 +1,4 @@
-# unclassifiedreadsEJ2023-23
+#UnclassifiedKrakenReadsEmmaJackson22/23
 
 #Denovo genome assembly. This script was used to generate contigs through overlapping reads, obtained through shotgun sequencing. 
 
