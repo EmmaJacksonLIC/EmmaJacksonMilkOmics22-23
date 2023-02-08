@@ -332,3 +332,32 @@ $samtools index pilon2_sorted.bam
 
 #Kraken2 
 $sbatch -J 12566_Kraken2Nanopore --mem 75G --time 00:05:00 -c 12 --account <project_code> --wrap 'set -x; module load Kraken2; kraken2 --confidence 0.1 --db /nesi/project/nesi00187/anwal2/KrakenDBs/Dec21/ --report BAR<barcode_number>nanopore_NovelEmmaseqJan23.report --thread 24 /nesi/project/nesi00187/LIC_raw_reads/nanopore/EmmaNovel1/BAR<barcode_number>/BAR<barcode_number>canuNovel.contigs.fasta '
+        
+        
+        
+#Bibliography
+Bushnell, B., 2014. BBMap: a fast, accurate, splice-aware aligner (No. LBNL-7065E). Lawrence Berkeley National Lab.(LBNL), Berkeley, CA (United States).
+        
+Cook, D.E. and Andersen, E.C., 2017. VCF-kit: assorted utilities for the variant call format. Bioinformatics, 33(10), pp.1581-1582.
+        
+Danecek, P., Bonfield, J.K., Liddle, J., Marshall, J., Ohan, V., Pollard, M.O., Whitwham, A., Keane, T., McCarthy, S.A., Davies, R.M. and Li, H., 2021. Twelve years of SAMtools and BCFtools. Gigascience, 10(2), p.giab008
+        
+De Coster, W., D’hert, S., Schultz, D.T., Cruts, M. and Van Broeckhoven, C., 2018. NanoPack: visualizing and processing long-read sequencing data. Bioinformatics, 34(15), pp.2666-2669.
+        
+Koren, S., Walenz, B.P., Berlin, K., Miller, J.R., Bergman, N.H. and Phillippy, A.M., 2017. Canu: scalable and accurate long-read assembly via adaptive k-mer weighting and repeat separation. Genome research, 27(5), pp.722-736.
+        
+Li, H., 2013. Aligning sequence reads, clone sequences and assembly contigs with BWA-MEM. arXiv preprint arXiv:1303.3997.
+        
+Li, H., 2018. Minimap2: pairwise alignment for nucleotide sequences. Bioinformatics, 34(18), pp.3094-3100.
+        
+Prjibelski, A., Antipov, D., Meleshko, D., Lapidus, A. and Korobeynikov, A., 2020. Using SPAdes de novo assembler. Current protocols in bioinformatics, 70(1), p.e102.
+        
+Vaser, R., Sović, I., Nagarajan, N. and Šikić, M., 2017. Fast and accurate de novo genome assembly from long uncorrected reads. Genome research, 27(5), pp.737-746.
+        
+Walker, B.J., Abeel, T., Shea, T., Priest, M., Abouelliel, A., Sakthikumar, S., Cuomo, C.A., Zeng, Q., Wortman, J., Young, S.K. and Earl, A.M., 2014. Pilon: an integrated tool for comprehensive microbial variant detection and genome assembly improvement. PloS one, 9(11), p.e112963.
+        
+Wick, R.R., 2018. Porechop: adapter trimmer for Oxford Nanopore reads.
+        
+Wick, R.R., Judd, L.M. and Holt, K.E., 2019. Performance of neural network basecalling tools for Oxford Nanopore sequencing. Genome biology, 20, pp.1-10.
+     
+Wood, D.E., Lu, J. and Langmead, B., 2019. Improved metagenomic analysis with Kraken 2. Genome biology, 20, pp.1-13.
