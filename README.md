@@ -62,7 +62,6 @@ $stats.sh contigs.fasta
 #Macrococcus brunensis strain 18KM1742
 #Macrococcus equipercicus strain Epi0143-OL
 #Macrococcus armenti JEK46
-#Macrococcus armenti JEK29
 #Macrococcus armenti JEK12
 #Macrococcus canis SD607
 #Macrococcus canis Epi0100-OL
