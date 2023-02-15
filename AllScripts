@@ -1,0 +1,306 @@
+Bcftools_mpile_up
+#!/bin/bash -e
+
+#SBATCH -c 2 --mem=16Gb --account=nesi00187 --time 72:00:00 -J 12566_bcftools_mpileup_EJ
+
+module load BCFtools/1.9-GCC-7.4.0
+
+bcftools mpileup -Ou -f /home/emv6/data/emv6/StaphA_Analysis/StaphA_Genomes/StaphA_LIC_K674/StaphA_LIC_K674_PilonPolishedGenome.fasta -b locationofallbamfiles.txt | bcftools call --ploidy 1 -mv -Ob -o /home/emv6/data/emv6/scripts/StaphA_LIC_readswithhumanCombinedVariantCalls.bcf
+
+SPAdes
+#!/bin/bash -e
+#SBATCH -c 10 --mem=8Gb --account=nesi00187 --time 00:10:00 -J 12566_SPAdes_SG
+
+module purge
+module load SPAdes/3.15.4-gimkl-2022a-Python-3.10.5
+
+spades.py --isolate -s B590_S440_R1_001.fastq.gz -o ./B590_Spades
+
+#-s indicates unpaired reads, change if using paired
+#change input/output
+
+Minimap
+
+#!/bin/bash -e
+
+#SBATCH --nodes 1
+#SBATCH --cpus-per-task 6
+#SBATCH --job-name minimap_12566_EV
+#SBATCH --mem=16G
+#SBATCH --time=00:15:00
+#SBATCH --account=nesi00187
+#SBATCH --hint=nomultithread
+#SBATCH --dependency=afterok:25878196
+
+module purge
+module load SAMtools/1.13-GCC-9.2.0
+module load minimap2/2.20-GCC-9.2.0
+
+READS=/nesi/project/nesi00187/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/StaphA_ST705_Barcode02_March2022_Guppy_Porechop_Nanostat_Nanofilt.fastq.gz
+CONTIG_FILE=/nesi/project/nesi00187/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/Barcode2_Canu/saureus_ST705_BARCODE2.contigs.fasta
+
+minimap2 -ax map-ont -t 10 $CONTIG_FILE  $READS | samtools sort -o /home/emv6/data/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/StaphA_ST705_Barcode2.sorted.bam -T reads.tmp
+samtools index /home/emv6/data/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/StaphA_ST705_Barcode2.sorted.bam
+
+variantcalling
+#!/bin/bash -e
+#SBATCH -c 6 --mem=16Gb --account=nesi00187 --time 1-00 -J 12566_VariantCalling_EV
+
+module load BWA/0.7.17-GCC-7.4.0
+module load SAMtools/1.9-GCC-7.4.0
+module load BCFtools/1.9-GCC-7.4.0
+
+
+mkdir -p bam_files_emjac0
+
+DAT=`find ${1} -name "*R1*.fastq.gz"`
+REF=/nesi/project/nesi00187/emjac0/metagenomes/ncbimetagenome.fasta
+for i in ${DAT[@]}
+do
+        FQ1=${i}
+        FQ2=`echo ${i} | sed s/R1/R2/`
+        echo $FQ1
+        echo $FQ2
+        base=$(basename ${i} _R1_001.fastq.gz)
+        echo "basename is ${base}"
+        bwa mem -t 6 -R "@RG\tID:${base}_2023\tPL:ILLUMINA\tSM:LIC_${base}" ${REF} ${FQ1} ${FQ2} | samtools sort -@ 6 -m 1G -O BAM -o bam_files_emjac0/StaphA_LIC_${base}_Illuminamappedtometagenome.bam
+
+done
+
+BBMap
+
+#!/bin/bash
+
+module load BBMap/38.90-gimkl-2020a
+
+DAT=`find ${1} -name "*R1*.fastq.gz"`
+OUTPUT=/nesi/project/nesi00187/emv6/BBMap/StaphHaemolytics
+
+for i in ${DAT[@]}
+do
+        FQ1=${i}
+        FQ2=`echo ${i} | sed s/R1/R2/`
+        echo $FQ1
+        echo $FQ2
+        base=$(basename ${i}  _Combined1+2_R1.fastq.gz)
+        echo "basename is ${base}"
+        echo "#!/bin/bash" > tmp.sh
+        echo "set -x; bbmap.sh in1=${FQ1} in2=${FQ2} covstats=${OUTPUT}/LIC_covstats${base}.txt covhist=${OUTPUT}/LIC_covhist${base}.txt basecov=${OUTPUT}/LIC_basecov${base}.txt bincov=${OUTPUT}/LIC_bincov${base}.txt out=${OUTPUT}/LIC_outfile${base}.txt ref=/nesi/project/nesi00187/emv6/Staph_Ref_Genomes/StaphHaemolytics_Reference.fasta" >> tmp.sh
+        sbatch -J 12566_BBMap_EV --mem 20G --time 01:00:00 -c 6 --account nesi00187 tmp.sh
+        sleep 0.5
+done
+
+
+Bcftools mpileup
+
+#!/bin/bash -e
+#SBATCH -c 2 --mem=16Gb --account=nesi00187 --time 72:00:00 -J 12566_bcftools_mpileup_EV
+
+module load BCFtools/1.9-GCC-7.4.0
+
+bcftools mpileup -Ou -f /home/emv6/data/emjac0/metagenomes/ncbimetagenome.fasta -b /home/emv6/data/emv6/scripts/bam_files_emjac0/locationofbamfiles.txt | bcftools call --ploidy 1 -mv -Ob -o /home/emv6/data/emv6/scripts/StaphA_LIC_metagenome.bcf
+
+BWA mem pilon
+#!/bin/bash -e
+#SBATCH -c 5 --mem=8Gb --account=nesi00187 --time 00:10:00 -J 12566_bwamempilon_SG
+
+module load BWA/0.7.17-GCC-9.2.0
+module load SAMtools/1.13-GCC-9.2.0
+
+#First step is your path to pilon_round1.fasta
+##Second step is the paths to illumina reads 1 and 2
+##Third step is the output path to sorted bam file i gave a example bam file
+
+##Second time you run this first step pathtopilon_round2.fasta, the illumina read paths stay the same, the output changes to Pilon2_sorted.bam
+
+
+bwa mem -t 5 /nesi/project/nesi00187/spg12/scripts/pilon_S_chromogenes_barcode04/pilon_round2.fasta /nesi/project/nesi00187/LIC_raw_reads/illumina/2021-11-08_Emma_Staph_genomes_run2_pass/LIC037/CombinedL1+2/Staphylococcus_chromogenes/AB205/AB205*R1.fastq.gz /nesi/project/nesi00187/LIC_raw_reads/illumina/2021-11-08_Emma_Staph_genomes_run2_pass/LIC037/CombinedL1+2/Staphylococcus_chromogenes/AB205/AB205*R2.fastq.gz | samtools view - -Sb | samtools sort - -@14 -o /nesi/project/nesi00187/spg12/scripts/pilon_S_chromogenes_barcode04/S_chromogenes_LIC_Barcode04_AB205_Pilon2_Sorted.bam
+
+Bwa mem
+#!/bin/bash -e
+#SBATCH -c 10 --mem=8Gb --account=nesi00187 --time 00:10:00 -J 12566_bwamem_EV
+
+module load  BWA/0.7.17-GCC-9.2.0
+module load SAMtools/1.13-GCC-9.2.0
+
+REF=/home/emv6/data/emv6/Strepuberis_ref_genome/Streptococcus_uberis_ATCC_BAA_854.fasta
+bwa mem -t 6 -R"@RG\tID:AB269\tPL:ILLUMINA\tSM:LIC_AB269_March22" $REF /home/emv6/data/LIC_raw_reads/illumina/2021-11-08_Emma_Staph_genomes_run2_pass/LIC037/CombinedL1+2/Streptococcus_uberis/AB269/AB269*_R1.fastq.gz /home/emv6/data/LIC_raw_reads/illumina/2021-11-08_Emma_Staph_genomes_run2_pass/LIC037/CombinedL1+2/Streptococcus_uberis/AB269/AB269*R2.fastq.gz | samtools view - -Sb | samtools sort - -@10 -o StrepUberis_LIC_AB269_IlluminareadsmappedtoStrepuberis.bam
+
+canu
+#!/bin/bash -e
+#SBATCH --nodes 1 --cpus-per-task 1 --ntasks 10 --mem=100Gb --account nesi00187 --time 72:00:00 -J 12566_Canu_EV --hint=nomultithread
+
+module purge
+module load Canu/2.1.1-GCC-9.2.0
+
+#Need to change path of input to where the Nanostat/nanofilt/poerechop/guppy file is
+#Change Directory to what name and path you want to store Canu in make this specific for each filename
+#change name to be whatever you want to call the canu output files in the directory. i.e. saureus_barcodenumber
+
+INPUT=/nesi/project/nesi00187/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/StaphA_ST705_Barcode02_March2022_Guppy_Porechop_Nanostat_Nanofilt.fastq.gz
+DIRECTORY=/nesi/project/nesi00187/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/Barcode2_Canu
+NAME=saureus_ST705_BARCODE2
+
+
+canu -d $DIRECTORY -p $NAME genomesize=2.8m useGrid=true gridOptions="--time=72:00:00 --account=nesi00187 --hint=nomultithread" -nanopore-raw $INPUT
+
+Guppy
+#!/bin/bash -e
+
+#SBATCH --account nesi00187 -J 12566_guppy_gpu --gpus-per-node P100:1 --mem 6G --cpus-per-task 4 --time 10:00:00 --output slurmout.%j.out
+
+module purge
+module load ont-guppy-gpu/6.0.1
+
+INPUT=/home/emv6/data/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/Plate3/20201219_1143_MC-110462_0_FAN52032_782f79b0/
+FOLDER=/home/emv6/data/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/Guppy_fast5
+
+guppy_basecaller -i $INPUT -s $FOLDER --flowcell FLO-MIN106 --kit SQK-LSK109 --device auto --recursive --min_qscore 7 --barcode_kits SQK-NBD110-24
+
+guppy 2 - super
+
+#!/bin/bash -e
+
+#SBATCH --account nesi00187 -J 12566_guppy_gpu --gpus-per-node A100:1 --mem 6G --cpus-per-task 4 --time 10:00:00 --output slurmout.%j.out
+
+module purge
+module load ont-guppy-gpu/6.4.6
+
+INPUT=/home/emv6/data/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/Plate3/20201219_1143_MC-110462_0_FAN52032_782f79b0/
+FOLDER=/home/emv6/data/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/Guppy_Super_Accurate_model
+
+guppy_basecaller -i $INPUT -s $FOLDER -c /opt/nesi/CS400_centos7_bdw/ont-guppy-gpu/6.4.6/data/dna_r9.4.1_450bps_sup.cfg --device auto --recursive --detect_mid_strand_adapter --min_qscore 7 --barcode_kits SQK-NBD110-24
+
+##INPUT points to the location of fast5 files for the experiment
+##FOLDER points to the location of the output files - these are basecalled files
+Guppy_Super_Accurate_Model.sh (END)
+
+minimap illumina
+#!/bin/bash
+#SBATCH -c 6 --mem=16G --account=nesi00187 --time 00:10:00 -J 12566_Minimap_EV
+
+##  To run modify file to point at your FastQ then submit with 'sbatch myScript.sh'
+## Any thing in <> needs to be replaced with your data
+
+REFARS=/home/emv6/data/emjac0/ncbimetagenome.fasta
+
+module load minimap2
+module load SAMtools
+
+minimap2 -R '@RG\tID:LIC353\tSM:LIC353_2022\tPL:Illumina' -x sr -t 16 -a $REFARS /nesi/nobackup/nesi00187/Unclassified_Reads/sean/LIC353_S358_R1.fq.gz /nesi/nobackup/nesi00187/Unclassified_Reads/sean/LIC353_S358_R2.fq.gz  | samtools sort --reference ${REFARS} -m 30G -T . -O CRAM -o /home/emv6/data/emv6/scripts/LIC353_emmametagenome.cram
+minimap_illumina.sh (END)
+
+nullarbor
+#!/bin/bash -e
+#SBATCH --cpus-per-task=20 --mem 80Gb --account=nesi00187 --time 166:00:00 -J 12566_nullarbor_EV
+
+mkdir -p $TMPDIR
+module purge
+module load nullarbor/2.0.20191013_LIC
+export KRAKEN2_DEFAULT_DB=/nesi/project/nesi00187/anwal2/KrakenDBs/Dec21/
+
+REF=/nesi/project/nesi00187/emv6/Staph_Ref_Genomes/
+
+nullarbor.pl --name StaphAureusIsolates --ref $REF/Staphylococcus_aureus_RF122_NC_007622.1.fasta \
+--input /home/emv6/data/emv6/Nullarbor_file_for_illumina_isolates_ALL.txt \
+--outdir /nesi/nobackup/nesi00187/emv6/StaphA_RF122_NEW_FEB23 \
+--cpus $SLURM_CPUS_PER_TASK --run --mlst saureus --taxoner-opt confidence 0.5 --treebuilder iqtree --treebuilder-opt "-alrt 1000 -wbtl"
+
+pilon
+#!/bin/bash -e
+#SBATCH -c 4 --mem=10Gb --account=nesi00187 --time 00:10:00 -J 12566_PILON_SG
+
+module load Pilon/1.23-Java-1.8.0_144
+
+java -Xmx10G -jar $EBROOTPILON/pilon.jar --genome [Path_To_racon4fastafile] --fix all --changes --frags [pathtosortedbamfilefromsamtoolssort] --threads 10 --output [pathtopilondirectory/pilon_round1] | tee [pathtopilondirectory/round1.pilon]
+
+##First time you run this you are using what I have included in the brackets
+##First time = genome is path to racon4 --frags is path to sortedbamfile from the samtools sort script --output is the path to pilon directory you make e.g. /nesi/project/nesi00187/spg12/pilon keep the pilonround1 same with the tee bit path to pilon directory /round1.pilon
+##Second time you run this --genome pathtopilon1.fasta --frags pathtosortedpilon1.bam --output pilonpath/pilon_round2 tee pathtopilondirectory/round2.pilon
+##Third time you run this --genome pathtopilon2.fasta --frags pathtosortedpilon2.bam --output pilonpath/pilon_round3 tee pathtopilondirectory/round3.pilon
+##The final pilon polish the change file should be empty and the pilon3 is the hybrid genome then runKraken again
+
+porechop
+
+#!/bin/bash -e
+#SBATCH -c 15 --mem=16Gb --account=nesi00187 --time 00:120:00 -J 12566_porechop_EV
+
+module purge
+module load Porechop/0.2.4-gimkl-2020a-Python-3.8.2
+
+for input in /nesi/project/nesi00187/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/StaphA_ST705_Barcode*_Guppy_Filtlong.fastq.gz
+
+do
+base=$(basename ${input} _Guppy_Filtlong.fastq.gz)
+echo "working with file $input"
+echo "basename is $base"
+
+OUTPUT=/nesi/project/nesi00187/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/StaphA_ST705_${base}_Guppy_Filtlong_Porechop.fastq
+porechop -i $input -o $OUTPUT --discard_middle
+
+done
+
+racon
+
+#!/bin/bash -e
+
+#SBATCH --nodes 1
+#SBATCH --cpus-per-task 10
+#SBATCH --job-name 12566_ev_racon
+#SBATCH --mem=20G
+#SBATCH --time=00:40:00
+#SBATCH --account=nesi00187
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.err
+
+module load Racon/1.4.21-GCC-9.2.0-CUDA-11.2.0-hybrid
+module load minimap2/2.24-GCC-9.2.0
+
+READS=/nesi/project/nesi00187/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/StaphA_ST705_Barcode02_March2022_Guppy_Porechop_Nanostat_Nanofilt.fastq.gz
+CONTIG_FILE=/nesi/project/nesi00187/LIC_raw_reads/nanopore/Emma_Nanopore_March/ST705/Barcode2_Canu/saureus_ST705_BARCODE2.contigs.fasta
+
+#======> Correction 1 X Racon
+minimap2 -t 10 $CONTIG_FILE $READS > StaphA_ST705_Barcode2_racon1.paf
+racon -t 10 $READS StaphA_ST705_Barcode2_racon1.paf $CONTIG_FILE > StaphA_ST705_Barcode2_racon1.fasta
+
+#======> Correction 2 X Racon
+minimap2 -t 10 StaphA_ST705_Barcode2_racon1.fasta $READS > StaphA_ST705_Barcode2_racon2.paf
+racon -t 10 $READS StaphA_ST705_Barcode2_racon2.paf StaphA_ST705_Barcode2_racon1.fasta > StaphA_ST705_Barcode2_racon2.fasta
+
+#======> Correction 3 X Racon
+minimap2 -t 10 StaphA_ST705_Barcode2_racon2.fasta $READS > StaphA_ST705_Barcode2_racon3.paf
+racon -t 10 $READS StaphA_ST705_Barcode2_racon3.paf StaphA_ST705_Barcode2_racon2.fasta > StaphA_ST705_Barcode2_racon3.fasta
+
+#======> Correction 4 X Racon
+minimap2 -t 10 StaphA_ST705_Barcode2_racon3.fasta $READS > StaphA_ST705_Barcode2_racon4.paf
+racon -t 10 $READS StaphA_ST705_Barcode2_racon4.paf StaphA_ST705_Barcode2_racon3.fasta > StaphA_ST705_Barcode2_racon4.fasta
+
+#======> Correction 5 X Racon
+#minimap2 -t 10 StaphA_ST705_Barcode2_racon4.fasta $READS > StaphA_ST705_Barcode2_racon5.paf
+#racon -t 10 $READS StaphA_ST705_Barcode2_racon5.paf StaphA_ST705_Barcode2_racon4.fasta > StaphA_ST705_Barcode2_racon5.fasta
+
+kraken
+
+Illumina
+sbatch -J 12566_KrakenIllumina_EV --mem 75G --time 00:05:00 -c 12 --account nesi00187 --wrap 'set -x; module load Kraken2; kraken2 --confidence 0.5 --db /nesi/project/nesi00187/anwal2/KrakenDBs/Dec21/ --report NameOFReport.report --threads 24 --paired /nesi/project/nesi00187/LIC_raw_reads/hiseq/2017-11-01_milk/AG0041-160_S5_L003_R1_001.fastq.gz /nesi/project/nesi00187/LIC_raw_reads/hiseq/2017-11-01_milk/AG0041-160_S5_L003_R2_001.fastq.gz '
+
+NANOPORE
+sbatch -J 12566_Kraken2Nanopore --mem 75G --time 00:05:00 -c 12 --account nesi00187 --wrap 'set -x; module load Kraken2; kraken2 --confidence 0.1 --db /nesi/project/nesi00187/anwal2/KrakenDBs/Dec21/ --report NameOFReport.report --threads 24 /nesi/project/nesi00187/LIC_raw_reads/hiseq/2017-11-01_milk/AG0041-16 '
+runKraken.sh (END)
+
+samtools sort
+
+#!/bin/bash -e
+#SBATCH -c 4 --mem=8Gb --account=nesi00187 --time 00:10:00 -J 12566_samtoolssort_EV
+
+module load SAMtools
+
+samtools sort --reference /home/emv6/data/emv6/StaphA_Analysis/StaphA_Genomes/StaphA_LIC_K575/StaphA_LIC_K575_PolishedGenome2021.fa -o StaphA_LIC_K575_sortedIlluminareadsmappedtoK601PolishedGenome.bam -O BAM /home/emv6/data/emv6/scripts/StaphA_LIC_K575_Illuminareadsmappedtopolishedgenome.bam
+samtoolssort.sh (END)
+
+
+
+
+
+
+
